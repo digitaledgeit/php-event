@@ -17,14 +17,23 @@ class EventManager {
 	/**
 	 * Gets the event listeners
 	 * @param   string      $event      The event name
+	 * @param   int         $priority   The event priority (higher numbers == higher priority)
 	 * @return  array
 	 */
-	public function getListeners($event = null) {
+	public function getListeners($event = null, $priority = null) {
 		if (is_null($event)) {
 			return $this->listeners;
 		} else {
 			if (isset($this->listeners[$event])) {
-				return $this->listeners[$event];
+				if (is_null($priority)) {
+					if (isset($this->listeners[$priority])) {
+						return $this->listeners[$event][$priority];
+					} else {
+						return array();
+					}
+				} else {
+					return $this->listeners[$event];
+				}
 			} else {
 				return array();
 			}
@@ -35,20 +44,25 @@ class EventManager {
 	 * Adds an event listener
 	 * @param   string      $event      The event name
 	 * @param   callable    $callback   The event callback
+	 * @param   int         $priority   The event priority (higher numbers == higher priority)
 	 * @return  $this
 	 */
-	public function attach($event, $callback) {
+	public function attach($event, $callback, $priority = 0) {
 
 		if (!isset($this->listeners[$event])) {
-			$this->listeners[$event] = array($callback);
+			$this->listeners[$event] = array();
+		}
+
+		if (!isset($this->listeners[$event][$priority])) {
+			$this->listeners[$event][$priority] = array();
+			krsort($this->listeners[$event], SORT_NUMERIC);
+		}
+
+		if (in_array($callback, $this->listeners[$event][$priority])) {
 			return $this;
 		}
 
-		if (in_array($callback, $this->listeners[$event])) {
-			return $this;
-		}
-
-		$this->listeners[$event][] = $callback;
+		$this->listeners[$event][$priority][] = $callback;
 
 		return $this;
 	}
@@ -57,19 +71,20 @@ class EventManager {
 	 * Adds a listener
 	 * @param   string      $event      The event name
 	 * @param   callable    $callback   The event callback
+	 * @param   int         $priority   The event priority (higher numbers == higher priority)
 	 * @return  $this
 	 */
-	public function detach($event, $callback) {
+	public function detach($event, $callback, $priority = 0) {
 
-		if (!isset($this->listeners[$event])) {
+		if (!isset($this->listeners[$event][$priority])) {
 			return $this;
 		}
 
-		if (($i = array_search($callback, $this->listeners[$event])) === false) {
+		if (($i = array_search($callback, $this->listeners[$event][$priority])) === false) {
 			return $this;
 		}
 
-		unset($this->listeners[$event][$i]);
+		unset($this->listeners[$event][$priority][$i]);
 
 		return $this;
 	}
@@ -91,8 +106,10 @@ class EventManager {
 
 		//notify the listeners
 		if (isset($this->listeners[$name])) {
-			foreach ($this->listeners[$name] as $listener) {
-				$listener($event);
+			foreach ($this->listeners[$name] as $priority) {
+				foreach ($priority as $listener) {
+					$listener($event);
+				}
 			}
 		}
 
